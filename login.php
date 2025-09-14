@@ -1,111 +1,59 @@
 <?php
 session_start();
-include 'dbcon.php'; // make sure this file sets up $conn properly
+include __DIR__. '/dbcon.php';
 
-$error = ""; // initialize error
+if ($_SERVER["REQUEST_METHOD"] == "POST") {
+    $uname = trim($_POST['username']);
+    $upass = $_POST['password'];
 
-if ($_SERVER['REQUEST_METHOD'] == 'POST') {
-    $username = trim($_POST['username']);
-    $password = trim($_POST['password']);
-
-    // Check if users table exists, create if missing
-    $createUsersSQL = "
-    CREATE TABLE IF NOT EXISTS users (
-        id INT AUTO_INCREMENT PRIMARY KEY,
-        username VARCHAR(100) UNIQUE NOT NULL,
-        password VARCHAR(255) NOT NULL,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )";
-    $conn->query($createUsersSQL);
-
-    // Fetch user
-    $sql = "SELECT * FROM users WHERE username=?";
-    $stmt = $conn->prepare($sql);
-    $stmt->bind_param("s", $username);
+    $stmt = $conn->prepare("SELECT id, password, role FROM users WHERE username=?");
+    $stmt->bind_param("s", $uname);
     $stmt->execute();
     $result = $stmt->get_result();
-    
-    if ($row = $result->fetch_assoc()) {
-        // Verify password hash
-        if (password_verify($password, $row['password'])) {
-            $_SESSION['user'] = $username;
-           header("Location: index.php");
 
+    if ($result->num_rows === 1) {
+        $user = $result->fetch_assoc();
+        if (password_verify($upass, $user['password'])) {
+            $_SESSION['userid'] = $user['id'];
+            $_SESSION['username'] = $uname;
+            $_SESSION['role'] = $user['role'];
+            header("Location: dashboard.php");
             exit();
         } else {
-            $error = "Invalid password.";
+            $error = "Invalid password!";
         }
     } else {
-        $error = "User not found.";
+        $error = "User not found!";
     }
+    $stmt->close();
 }
 ?>
+
 <!DOCTYPE html>
 <html>
 <head>
-    <meta charset="UTF-8">
     <title>Login</title>
-    <style>
-        body {
-            font-family: Arial, sans-serif;
-            background: #f5f7fa;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-        }
-        .login-container {
-            background: white;
-            padding: 25px;
-            border-radius: 10px;
-            box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-            width: 300px;
-        }
-        .login-container h2 {
-            text-align: center;
-            margin-bottom: 20px;
-            color: #333;
-        }
-        input[type="text"], input[type="password"] {
-            width: 100%;
-            padding: 10px;
-            margin: 8px 0 15px;
-            border: 1px solid #ccc;
-            border-radius: 6px;
-            box-sizing: border-box;
-        }
-        button {
-            width: 100%;
-            padding: 10px;
-            background: #4CAF50;
-            color: white;
-            border: none;
-            border-radius: 6px;
-            cursor: pointer;
-            font-size: 16px;
-        }
-        button:hover {
-            background: #45a049;
-        }
-        .error {
-            background: #f8d7da;
-            color: #721c24;
-            padding: 10px;
-            border-radius: 6px;
-            margin-bottom: 15px;
-            font-size: 14px;
-        }
-    </style>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
 </head>
-<body>
-<div class="login-container">
-    <h2>Login</h2>
-    <?php if (!empty($error)) echo "<div class='error'>$error</div>"; ?>
-    <form method="POST">
-        <input type="text" name="username" placeholder="Username" required>
-        <input type="password" name="password" placeholder="Password" required>
-        <button type="submit">Login</button>
-    </form>
+<body class="bg-light">
+<div class="container mt-5">
+    <div class="card shadow-lg p-4 rounded">
+        <h3 class="text-center mb-4">Login</h3>
+        <?php if(isset($error)) echo "<div class='alert alert-danger text-center'>$error</div>"; ?>
+
+        <form method="POST">
+            <div class="mb-3">
+                <label>Username</label>
+                <input type="text" name="username" class="form-control" required>
+            </div>
+            <div class="mb-3">
+                <label>Password</label>
+                <input type="password" name="password" class="form-control" required>
+            </div>
+            <button type="submit" class="btn btn-primary w-100">Login</button>
+        </form>
+        <p class="text-center mt-3">Not registered? <a href="register.php">Register here</a></p>
+    </div>
 </div>
 </body>
 </html>
